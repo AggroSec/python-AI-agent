@@ -11,7 +11,9 @@ client = genai.Client(api_key=api_key)
 
 import argparse
 
+from prompts import system_prompt
 
+from config import model_name
 
 def main():
     if api_key == None:
@@ -23,7 +25,14 @@ def main():
     args = parser.parse_args()
 
     messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
-    response = client.models.generate_content(model='gemini-2.5-flash', contents=messages)
+    response = client.models.generate_content(
+        model=model_name, 
+        contents=messages,
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0
+            ),
+        )
 
     if response.usage_metadata != None:
         if args.verbose:
