@@ -15,6 +15,8 @@ from prompts import system_prompt
 
 from config import model_name
 
+from call_function import available_functions, call_function
+
 def main():
     if api_key == None:
         raise RuntimeError("API key was not found")
@@ -30,7 +32,8 @@ def main():
         contents=messages,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
-            temperature=0
+            temperature=0,
+            tools=[available_functions]
             ),
         )
 
@@ -42,7 +45,23 @@ def main():
     else:
         raise RuntimeError("Usage Metadata not present, possible failed API call")
     
-    print(response.text)
+    if response.function_calls:
+        function_results = []
+        for function_call in response.function_calls:
+            function_call_result = call_function(function_call, verbose=args.verbose)
+            if function_call_result.parts == None:
+                raise Exception("Error: no part returned")
+            if function_call_result.parts[0].function_response == None:
+                raise Exception("Error: function response not returned")
+            if function_call_result.parts[0].function_response.response == None:
+                raise Exception("Error: function response's response not returned")
+            
+            function_results.append(function_call_result.parts[0])
+
+            if args.verbose == True:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+    else:
+        print(response.text)
 
 
 if __name__ == "__main__":
