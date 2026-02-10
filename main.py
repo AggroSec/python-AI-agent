@@ -17,22 +17,18 @@ from config import model_name
 
 from call_function import available_functions, call_function
 
-def main():
-    if api_key == None:
-        raise RuntimeError("API key was not found")
-    
-    parser = argparse.ArgumentParser(description="AI agent powered by Gemini, used to assist with coding.")
-    parser.add_argument("user_prompt", type=str, help="Enter your AI prompt telling the agent what you want it to do.")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-    args = parser.parse_args()
+def model_call(args):
+    if not hasattr(model_call, "messages") or model_call.messages is None:
+        model_call.messages = [
+            types.Content(role="user", parts=[types.Part(text=args.user_prompt)])
+        ]
 
-    messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
     response = client.models.generate_content(
         model=model_name, 
-        contents=messages,
+        contents=model_call.messages,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
-            temperature=0,
+            temperature=0.3,
             tools=[available_functions]
             ),
         )
@@ -45,6 +41,10 @@ def main():
     else:
         raise RuntimeError("Usage Metadata not present, possible failed API call")
     
+    if response.candidates:
+        for candidate in response.candidates:
+            model_call.messages.append(candidate.content)
+
     if response.function_calls:
         function_results = []
         for function_call in response.function_calls:
@@ -60,8 +60,28 @@ def main():
 
             if args.verbose == True:
                 print(f"-> {function_call_result.parts[0].function_response.response}")
+            
+            model_call.messages.append(types.Content(role="user", parts=function_results))
     else:
         print(response.text)
+        return True
+
+    return False
+
+def main():
+    if api_key == None:
+        raise RuntimeError("API key was not found")
+    
+    parser = argparse.ArgumentParser(description="AI agent powered by Gemini, used to assist with coding.")
+    parser.add_argument("user_prompt", type=str, help="Enter your AI prompt telling the agent what you want it to do.")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    args = parser.parse_args()
+
+    for _ in range(20):
+        #used to call the model, and handle the responses
+        is_model_call_finished = model_call(args)
+        if is_model_call_finished == True:
+            return
 
 
 if __name__ == "__main__":
